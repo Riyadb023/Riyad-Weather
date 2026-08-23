@@ -1,60 +1,250 @@
-import './style.css'
-import javascriptLogo from './assets/javascript.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import { setupCounter } from './counter.js'
+// src/main.js
+import "./style.css";
+import { searchCity, reverseGeocode } from "./api/geocodingApi.js";
+import { getWeatherData } from "./api/weatherApi.js";
+import {
+  transformCurrentWeather,
+  transformForecast,
+} from "./utils/transformWeather.js";
+import { formatTemperature } from "./utils/formatTemperature.js";
+import { formatTime } from "./utils/formatTime.js";
+import { formatDate } from "./utils/formatDate.js";
+import { getWeatherIcon } from "./utils/weatherIcons.js";
+import {
+  state,
+  setUnit,
+  setWeatherData,
+  toggleFavorite,
+  isFavorite,
+} from "./state/appState.js";
 
-document.querySelector('#app').innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${javascriptLogo}" class="framework" alt="JavaScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.js</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+// DOM Elements
+const searchForm = document.getElementById("search-form");
+const searchInput = document.getElementById("city-search");
+const statusContainer = document.getElementById("status-container");
+const dashboard = document.getElementById("weather-dashboard");
+const toggleC = document.getElementById("toggle-c");
+const toggleF = document.getElementById("toggle-f");
+const locationBtn = document.getElementById("location-btn");
+const favBtn = document.getElementById("fav-btn");
+const favoritesBar = document.getElementById("favorites-bar");
 
-<div class="ticks"></div>
+// UI Render Helpers
+function showStatus(message, isError = false) {
+  if (!message) {
+    statusContainer.innerHTML = "";
+    return;
+  }
+  statusContainer.innerHTML = `
+    <div class="status-msg ${isError ? "status-error" : "status-loading"}">
+      ${message}
+    </div>
+  `;
+}
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-          <img class="button-icon" src="${javascriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+function updateUnitToggleButtons() {
+  if (state.unit === "celsius") {
+    toggleC.classList.add("active");
+    toggleC.setAttribute("aria-pressed", "true");
+    toggleF.classList.remove("active");
+    toggleF.setAttribute("aria-pressed", "false");
+  } else {
+    toggleF.classList.add("active");
+    toggleF.setAttribute("aria-pressed", "true");
+    toggleC.classList.remove("active");
+    toggleC.setAttribute("aria-pressed", "false");
+  }
+}
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+function renderFavorites() {
+  favoritesBar.innerHTML = "";
+  if (state.favorites.length === 0) {
+    favoritesBar.classList.add("hidden");
+    return;
+  }
+  favoritesBar.classList.remove("hidden");
 
-setupCounter(document.querySelector('#counter'))
+  state.favorites.forEach((fav) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "fav-chip";
+    chip.textContent = `📍 ${fav.name}`;
+    chip.addEventListener("click", () => loadCityWeather(fav.name));
+    favoritesBar.appendChild(chip);
+  });
+}
+
+function renderWeather() {
+  if (!state.currentWeather || !state.forecast || !state.location) return;
+
+  const current = state.currentWeather;
+  const forecast = state.forecast;
+
+  // Header & Status
+  document.getElementById("location-name").textContent =
+    `${state.location.name}, ${state.location.country}`;
+  document.getElementById("weather-desc").textContent = current.description;
+  document.getElementById("current-icon").textContent = getWeatherIcon(
+    current.weatherId,
+    current.icon,
+  );
+
+  // Current Temp
+  document.getElementById("current-temp").textContent = formatTemperature(
+    current.temp,
+    state.unit,
+  );
+  document.getElementById("feels-like").textContent =
+    `Feels like ${formatTemperature(current.feelsLike, state.unit)}`;
+
+  // Favorite Star State
+  const activeFav = isFavorite(state.location);
+  favBtn.classList.toggle("active", activeFav);
+  favBtn.setAttribute(
+    "aria-label",
+    activeFav ? "Remove from favorites" : "Add to favorites",
+  );
+
+  // Details Grid
+  document.getElementById("detail-humidity").textContent =
+    `${current.humidity}%`;
+  document.getElementById("detail-wind").textContent =
+    `${current.windSpeed} km/h`;
+  document.getElementById("detail-pressure").textContent =
+    `${current.pressure} hPa`;
+  document.getElementById("detail-visibility").textContent =
+    `${current.visibility} km`;
+
+  // Hourly List
+  const hourlyContainer = document.getElementById("hourly-list");
+  hourlyContainer.innerHTML = forecast.hourly
+    .map(
+      (item) => `
+    <div class="forecast-item hourly-item">
+      <span class="forecast-time">${formatTime(item.time)}</span>
+      <span class="forecast-icon">${getWeatherIcon(item.weatherId, item.icon)}</span>
+      <span class="forecast-temp">${formatTemperature(item.temp, state.unit)}</span>
+    </div>
+  `,
+    )
+    .join("");
+
+  // Daily List
+  const dailyContainer = document.getElementById("daily-list");
+  dailyContainer.innerHTML = forecast.daily
+    .map(
+      (item) => `
+    <div class="forecast-item daily-item">
+      <span class="forecast-date">${formatDate(item.date)}</span>
+      <div class="daily-mid">
+        <span class="forecast-icon">${getWeatherIcon(item.weatherId, item.icon)}</span>
+        <span class="daily-desc">${item.description}</span>
+      </div>
+      <div class="daily-temps">
+        <span class="temp-high">${formatTemperature(item.tempMax, state.unit)}</span>
+        <span class="temp-low">${formatTemperature(item.tempMin, state.unit)}</span>
+      </div>
+    </div>
+  `,
+    )
+    .join("");
+
+  dashboard.classList.remove("hidden");
+  showStatus(null);
+}
+
+// Controller Actions
+async function loadCityWeather(cityName) {
+  showStatus(`Fetching weather for "${cityName}"...`);
+  dashboard.classList.add("hidden");
+
+  try {
+    const location = await searchCity(cityName);
+    const rawData = await getWeatherData(location.lat, location.lon);
+
+    const current = transformCurrentWeather(rawData.current, location);
+    const forecast = transformForecast(rawData.forecast);
+
+    setWeatherData(location, current, forecast);
+    renderWeather();
+    renderFavorites();
+  } catch (err) {
+    showStatus(err.message || "Error loading weather data.", true);
+  }
+}
+
+async function loadCoordsWeather(lat, lon) {
+  showStatus("Detecting location and fetching weather...");
+  dashboard.classList.add("hidden");
+
+  try {
+    const location = await reverseGeocode(lat, lon);
+    const rawData = await getWeatherData(lat, lon);
+
+    const current = transformCurrentWeather(rawData.current, location);
+    const forecast = transformForecast(rawData.forecast);
+
+    setWeatherData(location, current, forecast);
+    renderWeather();
+    renderFavorites();
+  } catch (err) {
+    showStatus(
+      err.message || "Unable to fetch weather for your location.",
+      true,
+    );
+  }
+}
+
+// Event Listeners
+searchForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const query = searchInput.value.trim();
+  if (query) {
+    loadCityWeather(query);
+    searchInput.value = "";
+  }
+});
+
+toggleC.addEventListener("click", () => {
+  if (state.unit !== "celsius") {
+    setUnit("celsius");
+    updateUnitToggleButtons();
+    renderWeather();
+  }
+});
+
+toggleF.addEventListener("click", () => {
+  if (state.unit !== "fahrenheit") {
+    setUnit("fahrenheit");
+    updateUnitToggleButtons();
+    renderWeather();
+  }
+});
+
+locationBtn.addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    showStatus("Geolocation is not supported by your browser.", true);
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => loadCoordsWeather(pos.coords.latitude, pos.coords.longitude),
+    () =>
+      showStatus("Location access denied. Search for a city manually.", true),
+  );
+});
+
+favBtn.addEventListener("click", () => {
+  if (!state.location) return;
+  toggleFavorite(state.location);
+  favBtn.classList.toggle("active", isFavorite(state.location));
+  renderFavorites();
+});
+
+// App Entry Point
+function initApp() {
+  updateUnitToggleButtons();
+  renderFavorites();
+  loadCityWeather(state.lastCity || "Algiers");
+}
+
+initApp();

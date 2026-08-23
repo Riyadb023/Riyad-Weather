@@ -2,12 +2,145 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>weather-app</title>
+    <title>Riyad Weather</title>
+    <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <header class="app-header">
+        <div class="header-top">
+          <h1>🌤️ Riyad Weather</h1>
+          <div class="controls">
+            <div
+              class="unit-toggle"
+              role="group"
+              aria-label="Temperature unit selection"
+            >
+              <button
+                type="button"
+                id="toggle-c"
+                class="toggle-btn"
+                aria-pressed="true"
+              >
+                °C
+              </button>
+              <button
+                type="button"
+                id="toggle-f"
+                class="toggle-btn"
+                aria-pressed="false"
+              >
+                °F
+              </button>
+            </div>
+            <button
+              type="button"
+              id="location-btn"
+              class="location-btn"
+              aria-label="Use my current location"
+              title="Use current location"
+            >
+              📍 Current Location
+            </button>
+          </div>
+        </div>
+
+        <form id="search-form" class="search-form" role="search">
+          <input
+            type="search"
+            id="city-search"
+            name="city"
+            placeholder="Search city (e.g. Algiers, Tokyo, London)..."
+            required
+            autocomplete="off"
+          />
+          <button type="submit" id="search-btn">Search</button>
+        </form>
+
+        <!-- Favorites Rack -->
+        <div
+          id="favorites-bar"
+          class="favorites-bar"
+          aria-label="Favorite cities"
+        >
+          <!-- JS dynamic favorite pills -->
+        </div>
+      </header>
+
+      <!-- Status container (alerts / errors) -->
+      <div
+        id="status-container"
+        class="status-container"
+        aria-live="polite"
+      ></div>
+
+      <!-- Main Weather Dashboard -->
+      <main id="weather-dashboard" class="weather-dashboard hidden">
+        <!-- Hero: Current Weather -->
+        <section id="current-weather" class="card current-weather-card">
+          <div class="card-header">
+            <div>
+              <h2 id="location-name" class="city-name">--</h2>
+              <p id="weather-desc" class="weather-desc">--</p>
+            </div>
+            <button
+              type="button"
+              id="fav-btn"
+              class="fav-btn"
+              aria-label="Toggle favorite"
+              title="Save to favorites"
+            >
+              ★
+            </button>
+          </div>
+
+          <div class="current-main">
+            <span id="current-icon" class="current-icon">☀️</span>
+            <div class="current-temp-wrapper">
+              <span id="current-temp" class="current-temp">--</span>
+              <span id="feels-like" class="feels-like">Feels like --</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Weather Details Grid -->
+        <section class="card details-card">
+          <h3>Weather Details</h3>
+          <div class="details-grid">
+            <div class="detail-box">
+              <span class="detail-label">💧 Humidity</span>
+              <span id="detail-humidity" class="detail-value">--</span>
+            </div>
+            <div class="detail-box">
+              <span class="detail-label">💨 Wind Speed</span>
+              <span id="detail-wind" class="detail-value">--</span>
+            </div>
+            <div class="detail-box">
+              <span class="detail-label">🧭 Pressure</span>
+              <span id="detail-pressure" class="detail-value">--</span>
+            </div>
+            <div class="detail-box">
+              <span class="detail-label">👁️ Visibility</span>
+              <span id="detail-visibility" class="detail-value">--</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Hourly Forecast -->
+        <section class="card forecast-section">
+          <h3>Hourly Forecast (24 Hours)</h3>
+          <div id="hourly-list" class="hourly-list"></div>
+        </section>
+
+        <!-- Daily Forecast -->
+        <section class="card forecast-section">
+          <h3>5-Day Forecast</h3>
+          <div id="daily-list" class="daily-list"></div>
+        </section>
+      </main>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
