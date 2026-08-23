@@ -151,6 +151,36 @@ function renderWeather() {
 
   dashboard.classList.remove("hidden");
   showStatus(null);
+  updateWeatherBackground();
+}
+// Maps OpenWeather's "main" condition field to one of our sky classes.
+// (Fog/Mist/Haze/Smoke/Dust/Sand/Ash/Squall/Tornado all share one calm,
+// hazy "atmosphere" treatment — they're visually similar low-contrast skies.)
+function getWeatherClass(condition, isNight) {
+  const key = condition.toLowerCase();
+
+  if (key === "clear")
+    return isNight ? "weather-clear-night" : "weather-clear-day";
+  if (key === "clouds")
+    return isNight ? "weather-clouds-night" : "weather-clouds-day";
+  if (key === "drizzle" || key === "rain") return "weather-rain";
+  if (key === "thunderstorm") return "weather-thunderstorm";
+  if (key === "snow") return "weather-snow";
+  return "weather-atmosphere"; // mist, fog, haze, smoke, dust, sand, ash, squall, tornado
+}
+
+function updateWeatherBackground() {
+  if (!state.currentWeather) return;
+
+  const body = document.body;
+  const isNight = state.currentWeather.icon.endsWith("n");
+  const nextClass = getWeatherClass(state.currentWeather.condition, isNight);
+
+  if (body.dataset.sky === nextClass) return; // avoid restarting animations needlessly
+  body.dataset.sky = nextClass;
+
+  body.className = body.className.replace(/weather-\S+/g, "").trim();
+  body.classList.add(nextClass);
 }
 
 // Controller Actions
